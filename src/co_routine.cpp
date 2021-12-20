@@ -786,6 +786,17 @@ void co_yield( stCoRoutine_t *co )
 	co_yield_env( co->env );
 }
 
+
+void co_yield_timeout(stCoRoutine_t *co, int timeout_ms)
+{
+    co_poll( co->env->pEpoll,NULL,0,timeout_ms);
+}
+
+void co_yield_ct_timeout(int timeout_ms)
+{
+    co_yield_timeout(co_self(), timeout_ms);
+}
+
 #ifdef CHECK_MAX_STACK > 0
 void print_stacktrace()
 {

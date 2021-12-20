@@ -54,6 +54,8 @@ void    co_yield_ct(); //ct = current thread
 void    co_release( stCoRoutine_t *co );
 // add by lxk
 void    co_activate( stCoRoutine_t *co );
+void    co_yield_timeout( stCoRoutine_t *co , int timeout_ms );
+void    co_yield_ct_timeout( int timeout_ms );
 
 stCoRoutine_t *co_self();
 
