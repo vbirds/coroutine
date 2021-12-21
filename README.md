@@ -1,3 +1,5 @@
+[![CMake](https://github.com/vbirds/coroutine/actions/workflows/cmake.yml/badge.svg)](https://github.com/vbirds/coroutine/actions/workflows/cmake.yml)
+
 Libco
 ===========
 Libco is a c/c++ coroutine library that is widely used in WeChat services. It has been running on tens of thousands of machines since 2013.
