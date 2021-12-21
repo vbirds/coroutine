@@ -117,7 +117,8 @@ static void *readwrite_routine( void *arg )
 	return 0;
 }
 int co_accept(int fd, struct sockaddr *addr, socklen_t *len );
-static void *accept_routine( void * )
+
+[[noreturn]] static void *accept_routine( void * )
 {
 	co_enable_hook_sys();
 	printf("accept_routine\n");
