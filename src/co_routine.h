@@ -110,5 +110,13 @@ pid_t GetPid();
 // 加入start_hook方法是为了在使用LD_PRELOAD=libco时getenv被提前调用导致调用到getpid出错，因此加入开关，等进程初始化完成进入代码逻辑时才打开开关
 void co_start_hook();
 
+// yield前检查当前co是否超过stacksize栈长度->返回true成功,stacksize 栈报警值 ,curstacklen返回占用栈长度
+bool co_check_yield( stCoRoutine_t *co ,int stack_size,int &curstackLen);
+// resume前检查当前co是否超过stacksize栈长度->返回true成功,stacksize 栈报警值 ,curstacklen返回占用栈长度
+bool co_check_resume( stCoRoutine_t *co ,int stack_size,int &curstac_klen);
+// 返回co占用的堆栈长度
+int co_get_stack_len( stCoRoutine_t *co );
+int co_get_cur_stack_len();
+
 #endif
 

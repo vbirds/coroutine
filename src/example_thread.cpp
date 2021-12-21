@@ -29,6 +29,7 @@
 
 int loop(void *)
 {
+    printf("hello world\n");
 	return 0;
 }
 static void *routine_func( void * )
@@ -41,6 +42,8 @@ int main(int argc,char *argv[])
 {
 	int cnt = atoi( argv[1] );
 
+    co_start_hook();
+
 	pthread_t tid[ cnt ];
 	for(int i=0;i<cnt;i++)
 	{
@@ -48,7 +51,7 @@ int main(int argc,char *argv[])
 	}
 	for(;;)
 	{
-		sleep(1);
+		 sleep(1);
 	}
 	
 	return 0;

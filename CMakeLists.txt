@@ -13,7 +13,7 @@ set(CMAKE_MACOSX_RPATH 0)
 set(LIBCO_VERSION   1)
 
 # Set cflags
-set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-std=gnu++11 -fPIC -Wall -pthread")
+set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-std=c++11 -fPIC -Wall -pthread")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -pg -O0 -DDEBUG=1 ${CMAKE_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 ${CMAKE_CXX_FLAGS}")
 
@@ -52,6 +52,7 @@ endmacro(add_example_target)
 
 add_example_target(closure)
 add_example_target(cond)
+add_example_target(cond2)
 add_example_target(copystack)
 add_example_target(echocli)
 add_example_target(echosvr)
@@ -60,6 +61,7 @@ add_example_target(setenv)
 add_example_target(specific)
 add_example_target(thread)
 add_example_target(simple)
+add_example_target(coresume)
 
 install(TARGETS colib_shared LIBRARY DESTINATION "lib" ARCHIVE DESTINATION "lib")
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/src/ DESTINATION "include/co" FILES_MATCHING PATTERN "*.h")

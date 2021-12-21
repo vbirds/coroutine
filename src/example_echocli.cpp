@@ -104,7 +104,7 @@ static void *readwrite_routine( void *arg )
 	co_enable_hook_sys();
 
 	stEndPoint *endpoint = (stEndPoint *)arg;
-	char str[8]="sarlmol";
+	char str[16]="sarlmolsarlmol";
 	char buf[ 1024 * 16 ];
 	int fd = -1;
 	int ret = 0;
@@ -167,7 +167,7 @@ static void *readwrite_routine( void *arg )
 			}
 			else
 			{
-				//printf("echo %s ret %d fd %d\n", buf, ret, fd);
+				// printf("echo %s ret %d fd %d\n", buf, ret, fd);
                 buf[0] = '\0';
 				AddSuccCnt();
 			}

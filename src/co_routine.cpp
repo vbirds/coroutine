@@ -620,7 +620,7 @@ static int CoRoutineFunc( stCoRoutine_t *co,void * )
 	co->cEnd = 1;
 
 	stCoRoutineEnv_t *env = co->env;
-
+    // 执行完成后切回去上一个调用协程
 	co_yield_env( env );
 
 	return 0;
@@ -733,18 +733,24 @@ void co_swap(stCoRoutine_t* curr, stCoRoutine_t* pending_co);
 void co_resume( stCoRoutine_t *co )
 {
 	stCoRoutineEnv_t *env = co->env;
+    // 不能resume 自己
     assert(env == co_self()->env);
-    
+
+    // 非对称协程序的实现, 上次互切的协程
 	stCoRoutine_t *lpCurrRoutine = env->pCallStack[ env->iCallStackSize - 1 ];
 	if( !co->cStart )
 	{
 		coctx_make( &co->ctx,(coctx_pfn_t)CoRoutineFunc,co,0 );
+        // 标记当前协程开始运行
 		co->cStart = 1;
 	}
+#ifdef DEBUG
+    //printf("iCallStackSize[%d]\n", env->iCallStackSize);
+#endif
+
+    // 存入自身 如果 iCallStackSize >= 128 会栈溢出
 	env->pCallStack[ env->iCallStackSize++ ] = co;
 	co_swap( lpCurrRoutine, co );
-
-
 }
 
 void ActiveProcess( stTimeoutItem_t * ap )
@@ -1018,6 +1024,7 @@ void co_init_curr_thread_env()
 
 	coctx_init( &self->ctx );
 
+    // 函数调用链
 	g_coRoutineEnv->pCallStack[ g_coRoutineEnv->iCallStackSize++ ] = self;
 
 	stCoEpoll_t *ev = AllocEpoll();
@@ -1071,8 +1078,10 @@ void co_eventloop( stCoEpoll_t *ctx, pfn_co_eventloop_t pfn, void *arg )
         // 方案：只查最近的1秒内的超时事件，增加超时位图数据结构来提高查找效率，而且以8毫秒为粒度（刚好是位图中的一字节数据）
         int waittime = GetNextTimeoutInASecond(ctx->pTimeout, GetTickMS());
 		int ret = co_epoll_wait( ctx->iEpollFd,result,stCoEpoll_t::_EPOLL_SIZE, waittime );
-        
+
+        // 激活的事件
 		stTimeoutItemLink_t *active = (ctx->pstActiveList);
+        // 超时的事件
 		stTimeoutItemLink_t *timeout = (ctx->pstTimeoutList);
 
 		memset( timeout,0,sizeof(stTimeoutItemLink_t) );
@@ -1548,6 +1557,45 @@ int co_cond_free( stCoCond_t * cc )
 {
 	free( cc );
 	return 0;
+}
+
+bool co_check_yield(stCoRoutine_t *co, int stack_size, int &curstack_len)
+{
+    char c;
+    int len = co->stack_mem->stack_bp - &c;
+    if (len > stack_size)
+    {
+        curstack_len = len;
+        return false;
+    }
+
+    return true;
+}
+
+bool co_check_resume(stCoRoutine_t *co, int stack_size, int &curstack_len)
+{
+    char c;
+    int len = co->stack_mem->stack_bp - &c;
+    if (len > stack_size)
+    {
+        curstack_len = len;
+        return false;
+    }
+
+    return true;
+}
+
+int co_get_stack_len(stCoRoutine_t *co)
+{
+    char c;
+    int len = co->stack_mem->stack_bp - &c;
+    return len;
+}
+
+int co_get_cur_stack_len()
+{
+    stCoRoutine_t * co = co_self();
+    return co_get_stack_len(co);
 }
 
 stCoCondItem_t *co_cond_pop( stCoCond_t *link )
