@@ -118,5 +118,7 @@ bool co_check_resume( stCoRoutine_t *co ,int stack_size,int &curstac_klen);
 int co_get_stack_len( stCoRoutine_t *co );
 int co_get_cur_stack_len();
 
+bool co_end(stCoRoutine_t *co);
+
 #endif
 

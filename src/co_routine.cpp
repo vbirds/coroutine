@@ -1598,6 +1598,11 @@ int co_get_cur_stack_len()
     return co_get_stack_len(co);
 }
 
+bool co_end(stCoRoutine_t *co)
+{
+    return co->cEnd;
+}
+
 stCoCondItem_t *co_cond_pop( stCoCond_t *link )
 {
 	stCoCondItem_t *p = link->head;

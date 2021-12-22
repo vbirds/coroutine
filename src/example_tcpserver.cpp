@@ -22,7 +22,6 @@
 struct stTcpServerEnv
 {
     int listenfd;
-    char ip[16];
 };
 
 struct stTcpClientEnv
@@ -143,7 +142,7 @@ void * accept_routine(void * argv )
         socklen_t len = sizeof(addr);
 
         int fd = co_accept(env->listenfd, (struct sockaddr *)&addr, &len);
-        if( fd < 0 )
+        if ( fd < 0 )
         {
             struct pollfd pf = { 0 };
             pf.fd = env->listenfd;

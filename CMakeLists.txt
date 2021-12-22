@@ -63,6 +63,7 @@ add_example_target(thread)
 add_example_target(simple)
 add_example_target(coresume)
 add_example_target(tcpserver)
+add_example_target(for)
 
 install(TARGETS colib_shared LIBRARY DESTINATION "lib" ARCHIVE DESTINATION "lib")
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/src/ DESTINATION "include/co" FILES_MATCHING PATTERN "*.h")
