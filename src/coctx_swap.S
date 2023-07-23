@@ -32,7 +32,7 @@ coctx_swap:
 	movl %ebx, 4(%eax)
 	movl 0(%esp), %edx // ret func addr
 	movl %edx, 0(%eax)
-	
+
 	movl 8(%esp), %eax // param2
 	movl 4(%eax), %ebx
 	movl 16(%eax), %edi

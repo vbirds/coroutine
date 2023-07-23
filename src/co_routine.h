@@ -52,6 +52,8 @@ void    co_resume( stCoRoutine_t *co );
 void    co_yield( stCoRoutine_t *co );
 void    co_yield_ct(); //ct = current thread
 void    co_release( stCoRoutine_t *co );
+void    co_reset(stCoRoutine_t * co);
+
 // add by lxk
 void    co_activate( stCoRoutine_t *co );
 void    co_yield_timeout( stCoRoutine_t *co , int timeout_ms );
@@ -105,6 +107,8 @@ int co_register_fd(int fd);
 int co_set_timeout(int fd, int read_timeout_ms, int write_timeout_ms);
 int co_set_nonblock(int fd);
 
+bool co_is_runtime_busy(); // 当运行时当前循环周期超过100毫秒时返回true
+
 pid_t GetPid();
 
 // 加入start_hook方法是为了在使用LD_PRELOAD=libco时getenv被提前调用导致调用到getpid出错，因此加入开关，等进程初始化完成进入代码逻辑时才打开开关
@@ -119,6 +123,7 @@ int co_get_stack_len( stCoRoutine_t *co );
 int co_get_cur_stack_len();
 
 bool co_end(stCoRoutine_t *co);
+
 
 #endif
 

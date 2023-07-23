@@ -242,7 +242,14 @@ int socket(int domain, int type, int protocol)
 	}
 
 	rpchook_t *lp = alloc_by_fd( fd );
-	lp->domain = domain;
+    if(lp == NULL)
+    {
+        return fd;
+    }
+    else
+    {
+        lp->domain = domain;
+    }
 	
 	fcntl( fd, F_SETFL, g_sys_fcntl_func(fd, F_GETFL,0 ) );
 
@@ -830,6 +837,9 @@ int fcntl(int fildes, int cmd, ...)
 		case F_GETFL:
 		{
 			ret = g_sys_fcntl_func( fildes,cmd );
+            if (lp && !(lp->user_flag & O_NONBLOCK)) {
+                ret = ret & (~O_NONBLOCK);
+            }
 			break;
 		}
 		case F_SETFL:
@@ -1175,7 +1185,10 @@ int gethostbyname_r(const char* __restrict name,
     HOOK_SYS_FUNC(gethostbyname_r);
 
 #if defined( __APPLE__ ) || defined( __FreeBSD__ )
-    return g_sys_gethostbyname_r_func( name );
+
+    // fix a bug on macOS and FreeBSD platform https://github.com/Tencent/libco/pull/184/files
+    return g_sys_gethostbyname_r_func(name, __result_buf, __buf, __buflen,
+                                      __result, __h_errnop);
 #else
     if (!co_is_enable_sys_hook()) {
         return g_sys_gethostbyname_r_func(name, __result_buf, __buf, __buflen,

@@ -355,8 +355,9 @@ struct stCoEpoll_t
 
 	struct stTimeoutItemLink_t *pstActiveList;
     
-	co_epoll_res *result; 
+	co_epoll_res *result;
 
+    unsigned long long lastLoopStartTime;
 };
 
 typedef void (*OnPreparePfn_t)( stTimeoutItem_t *,struct epoll_event &ev, stTimeoutItemLink_t *active );
@@ -704,13 +705,18 @@ void co_free( stCoRoutine_t *co )
     {
 #ifdef STACK_PROTECT
     	free(co->stack_mem->origin);
+        free(co->stack_mem);
 #else
         free(co->stack_mem->stack_buffer);
+        free(co->stack_mem);
 #endif
         free(co->stack_mem);
     } else {
+        stCoRoutineEnv_t *env = co->env;
+        if (env->occupy_co == co) {
+            env->occupy_co = NULL;
+        }
         // fix by lxk here
-
         if (co->stack_mem->occupy_co == co) {
             co->stack_mem->occupy_co = NULL;
         }
@@ -720,6 +726,7 @@ void co_free( stCoRoutine_t *co )
             free(co->save_buffer), co->save_buffer = NULL;
         }
     }
+    co->pfn = NULL; //joezzhu fix the memory leak bug at 2022-03-09
     free( co );
 }
 
@@ -751,6 +758,37 @@ void co_resume( stCoRoutine_t *co )
     // 存入自身 如果 iCallStackSize >= 128 会栈溢出
 	env->pCallStack[ env->iCallStackSize++ ] = co;
 	co_swap( lpCurrRoutine, co );
+}
+
+// walkerdu 2018-01-14
+// 用于reset超时无法重复使用的协程
+void co_reset(stCoRoutine_t * co)
+{
+    if(!co->cStart || co->cIsMain)
+        return;
+
+    co->cStart = 0;
+    co->cEnd = 0;
+
+    // pfn 用的是 std::function，如果不置空，那么在函数里的智能指针有可能不会正常释放，导致内存泄漏。
+    co->pfn = nullptr;
+
+    // 如果当前协程有共享栈被切出的buff，要进行释放
+    if(co->save_buffer)
+    {
+        free(co->save_buffer);
+        co->save_buffer = NULL;
+        co->save_size = 0;
+    }
+
+    stCoRoutineEnv_t *env = co->env;
+    if (env->occupy_co == co) {
+        env->occupy_co = NULL;
+    }
+
+    // 如果共享栈被当前协程占用，要释放占用标志，否则被切换，会执行save_stack_buffer()
+    if(co->stack_mem->occupy_co == co)
+        co->stack_mem->occupy_co = NULL;
 }
 
 void ActiveProcess( stTimeoutItem_t * ap )
@@ -836,16 +874,16 @@ void check_stack_size(stCoRoutine_t* co) {
 }
 #endif
 
-thread_local uint32_t _t_max_malloc_size(0);
+//thread_local uint32_t _t_max_malloc_size(0);
 void save_stack_buffer(stCoRoutine_t* occupy_co)
 {
 	assert(occupy_co->cIsMain == 0);
 
 	///copy out
 	int len = occupy_co->stack_mem->stack_bp - occupy_co->stack_sp;
-	if (len > _t_max_malloc_size) {
-		_t_max_malloc_size = len;
-	}
+//	if (len > _t_max_malloc_size) {
+//		_t_max_malloc_size = len;
+//	}
 
 #if CHECK_MAX_STACK > 0
 	if (len > CHECK_MAX_STACK) {
@@ -873,7 +911,7 @@ void co_swap(stCoRoutine_t* curr, stCoRoutine_t* pending_co)
 	char c;
 	curr->stack_sp= &c;
 
-#ifdef CHECK_MAX_STACK > 0
+#ifdef CHECK_MAX_STACK //> 0
 		check_stack_size(curr);
 #endif
 
@@ -923,7 +961,7 @@ void co_swap(stCoRoutine_t* curr, stCoRoutine_t* pending_co)
 		//resume stack buffer
 		if (update_pending_co->save_buffer && update_pending_co->save_size > 0)
 		{
-#ifdef CHECK_MAX_STACK > 0
+#ifdef CHECK_MAX_STACK //> 0
 			if (update_pending_co->save_size > CHECK_MAX_STACK) {
 				co_log_err("CO_WARN: ============= resuming stack size %lu\n", update_pending_co->save_size);
 			}
@@ -932,7 +970,7 @@ void co_swap(stCoRoutine_t* curr, stCoRoutine_t* pending_co)
 			// 注意：执行这句memcpy后，函数中所有变量都可能被覆盖掉了，因为编译优化函数内变量在栈上的位置顺序是不定的，即stack_sp的位置不一定在所有函数变量的前面
 			memcpy(update_pending_co->stack_sp, update_pending_co->save_buffer, update_pending_co->save_size); 
 
-#ifdef CHECK_MAX_STACK > 0
+#ifdef CHECK_MAX_STACK //> 0
 			// 下面两个问题的原因可能是因为编译器的编译优化调整了函数内变量在栈上的布局顺序导致的
 			//assert(update_pending_co == curr); // 问题一： 这里为什么能false? 
 			//if (update_pending_co->save_size > CHECK_MAX_STACK) {
@@ -1100,6 +1138,7 @@ void co_eventloop( stCoEpoll_t *ctx, pfn_co_eventloop_t pfn, void *arg )
 		}
 
 		unsigned long long now = GetTickMS();
+        ctx->lastLoopStartTime = now; // 记录当前运行时循环开始时间
 		TakeAllTimeout( ctx,now,timeout );
 
 		stTimeoutItem_t *lp = timeout->head;
@@ -1155,12 +1194,7 @@ void co_eventloop_once(stCoEpoll_t *ctx, int timeout_ms)
 	}
 
 	co_epoll_res *result = ctx->result;
-
-	// 由于co_epoll_wait的系统消耗比较大，应尽量减少调用频率，可以根据下一超时时间点来设置waittime
-	// 但由于超时链数据结构限制，需要遍历数组来找到下一超时事件，最坏情况下（链空的时候）需要遍历整个数组（60*1000个）元素
-	// 方案：只查最近的1秒内的超时事件，增加超时位图数据结构来提高查找效率，而且以8毫秒为粒度（刚好是位图中的一字节数据）
-	int waittime = GetNextTimeoutInASecond(ctx->pTimeout, GetTickMS());
-	int ret = co_epoll_wait( ctx->iEpollFd,result,stCoEpoll_t::_EPOLL_SIZE, waittime );
+	int ret = co_epoll_wait( ctx->iEpollFd,result,stCoEpoll_t::_EPOLL_SIZE, timeout_ms );
 
 	stTimeoutItemLink_t *active = (ctx->pstActiveList);
 	stTimeoutItemLink_t *timeout = (ctx->pstTimeoutList);
@@ -1218,7 +1252,7 @@ void co_eventloop_once(stCoEpoll_t *ctx, int timeout_ms)
 		lp = active->head;
 	}
 
-	return;
+    return;
 }
 
 void OnCoroutineEvent( stTimeoutItem_t * ap )
@@ -1611,4 +1645,8 @@ stCoCondItem_t *co_cond_pop( stCoCond_t *link )
 		PopHead<stCoCondItem_t,stCoCond_t>( link );
 	}
 	return p;
+}
+
+bool co_is_runtime_busy() {
+    return GetTickMS() > co_self()->env->pEpoll->lastLoopStartTime + 100;
 }

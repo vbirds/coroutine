@@ -32,11 +32,16 @@ void* RoutineFunc(void* args)
 	int* routineid = (int*)args;
 	while (true)
 	{
-		char sBuff[128];
+
+        float a = 0.1;
+        float b = 0.2;
+        float d = a * b + (float )(*routineid);
+
+		char sBuff[1024 *128 +1];
 		sprintf(sBuff, "from routineid %d stack addr %p\n", *routineid, sBuff);
 
-		printf("%s", sBuff);
-		poll(NULL, 0, 1000); //sleep 1s
+		printf("%f---%s", d, sBuff);
+		poll(NULL, 0, 200); //sleep 1s
 	}
 	return NULL;
 }
@@ -44,14 +49,14 @@ void* RoutineFunc(void* args)
 int main()
 {
     co_start_hook();
-	stShareStack_t* share_stack= co_alloc_sharestack(1, 1024 * 128);
+	stShareStack_t* share_stack= co_alloc_sharestack(1, 1024 * 1024);
 	stCoRoutineAttr_t attr;
 	attr.stack_size = 0;
 	attr.share_stack = share_stack;
 
-	stCoRoutine_t* co[2];
-	int routineid[2];
-	for (int i = 0; i < 2; i++)
+	stCoRoutine_t* co[1024];
+	int routineid[1024];
+	for (int i = 0; i < 1024; i++)
 	{
 		routineid[i] = i;
 		co_create(&co[i], &attr, RoutineFunc, routineid + i);
